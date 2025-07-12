@@ -325,6 +325,122 @@ def build_hierarchical_structure(directory: str, file_results: List[Tuple[str, s
         return f"[{complete_structure}]"
 
 
+def load_previous_hashes(directory: str) -> Tuple[Dict[str, str], Dict[str, Tuple[str, str]]]:
+    """
+    Load previous hashes from disk for change detection.
+    """
+    hash_file = f"{directory.replace('/', '_')}_previous_hashes.json"
+    try:
+        with open(hash_file, 'r') as f:
+            data = json.load(f)
+            return data.get('files', {}), data.get('folders', {})
+    except FileNotFoundError:
+        return {}, {}
+    except Exception as e:
+        print(f"Warning: Could not load previous hashes: {e}", file=sys.stderr)
+        return {}, {}
+
+
+def save_current_hashes(directory: str, file_results: List[Tuple[str, str]], folder_results: List[Tuple[str, str, str]]):
+    """
+    Save current hashes to disk for future change detection.
+    """
+    hash_file = f"{directory.replace('/', '_')}_previous_hashes.json"
+    
+    # Convert to relative paths for storage
+    files_dict = {}
+    for file_path, file_hash in file_results:
+        if file_hash:
+            rel_path = str(Path(file_path).relative_to(directory))
+            files_dict[rel_path] = file_hash
+    
+    folders_dict = {}
+    for folder_path, hash1, hash2 in folder_results:
+        if hash1 and hash2:
+            rel_path = str(Path(folder_path).relative_to(directory))
+            folders_dict[rel_path] = (hash1, hash2)
+    
+    data = {
+        'files': files_dict,
+        'folders': folders_dict,
+        'timestamp': time.time()
+    }
+    
+    try:
+        with open(hash_file, 'w') as f:
+            json.dump(data, f, indent=2)
+    except Exception as e:
+        print(f"Warning: Could not save current hashes: {e}", file=sys.stderr)
+
+
+def detect_changes(directory: str, file_results: List[Tuple[str, str]], folder_results: List[Tuple[str, str, str]]) -> List[str]:
+    """
+    Detect changes by comparing current hashes with previous hashes.
+    Returns changes sorted by logical time order of events.
+    """
+    previous_files, previous_folders = load_previous_hashes(directory)
+    changes = []
+    
+    # Convert current results to relative paths for comparison
+    current_files = {}
+    for file_path, file_hash in file_results:
+        if file_hash:
+            rel_path = str(Path(file_path).relative_to(directory))
+            current_files[rel_path] = file_hash
+    
+    current_folders = {}
+    for folder_path, hash1, hash2 in folder_results:
+        if hash1 and hash2:
+            rel_path = str(Path(folder_path).relative_to(directory))
+            current_folders[rel_path] = (hash1, hash2)
+    
+    # Collect all changes with priority for sorting
+    change_events = []
+    
+    # Check for deleted files (highest priority - happened first)
+    for file_path in previous_files:
+        if file_path not in current_files:
+            change_events.append((1, f"DELETED_FILE: {file_path}"))
+    
+    # Check for deleted folders (second priority)
+    for folder_path in previous_folders:
+        if folder_path not in current_folders:
+            change_events.append((2, f"DELETED_FOLDER: {folder_path}"))
+    
+    # Check for modified files (third priority)
+    for file_path in current_files:
+        if file_path in previous_files and current_files[file_path] != previous_files[file_path]:
+            change_events.append((3, f"MODIFIED_FILE: {file_path}"))
+    
+    # Check for new folders (fourth priority)
+    for folder_path in current_folders:
+        if folder_path not in previous_folders:
+            change_events.append((4, f"NEW_FOLDER: {folder_path}"))
+    
+    # Check for new files (fifth priority)
+    for file_path in current_files:
+        if file_path not in previous_files:
+            change_events.append((5, f"NEW_FILE: {file_path}"))
+    
+    # Check for folder changes (lowest priority - happened last)
+    for folder_path in current_folders:
+        if folder_path in previous_folders:
+            prev_hash1, prev_hash2 = previous_folders[folder_path]
+            curr_hash1, curr_hash2 = current_folders[folder_path]
+            
+            if curr_hash1 != prev_hash1:
+                change_events.append((6, f"FOLDER_CONTENTS_CHANGED: {folder_path} (files/folders added/removed)"))
+            
+            if curr_hash2 != prev_hash2:
+                change_events.append((7, f"FOLDER_STRUCTURE_CHANGED: {folder_path} (metadata/structure modified)"))
+    
+    # Sort by priority (time order) and extract just the messages
+    change_events.sort(key=lambda x: x[0])
+    changes = [event[1] for event in change_events]
+    
+    return changes
+
+
 def save_cache():
     """
     Save hash cache to disk for future runs.
@@ -403,6 +519,22 @@ def main():
             hierarchical_structure = build_hierarchical_structure(directory, file_results, folder_results)
             print(hierarchical_structure)
             print()
+            
+            # Detect and display changes
+            print("Change Detection:")
+            print("-" * 50)
+            changes = detect_changes(directory, file_results, folder_results)
+            
+            if changes:
+                print("Changes detected:")
+                for change in changes:
+                    print(f"  • {change}")
+            else:
+                print("No changes detected since last run.")
+            print()
+            
+            # Save current hashes for next comparison
+            save_current_hashes(directory, file_results, folder_results)
             
         except Exception as error:
             print(f"Error processing directory {directory}: {error}", file=sys.stderr)
