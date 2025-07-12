@@ -264,6 +264,67 @@ def normalize_folder_output(folder_path: str, hash1: str, hash2: str) -> str:
     return f"{folder_name}:[{hash1}];[{hash2}]"
 
 
+def build_hierarchical_structure(directory: str, file_results: List[Tuple[str, str]], folder_results: List[Tuple[str, str, str]]) -> str:
+    """
+    Build hierarchical structure showing hashes representing the system structure.
+    """
+    root_path = Path(directory)
+    
+    # Create maps for easy lookup
+    file_hash_map = {Path(file_path): file_hash for file_path, file_hash in file_results if file_hash}
+    folder_hash_map = {Path(folder_path): (hash1, hash2) for folder_path, hash1, hash2 in folder_results if hash1 and hash2}
+    
+    def build_structure_recursive(current_path: Path) -> str:
+        """Recursively build the structure for a given path."""
+        structure_parts = []
+        
+        # Get all files and folders in current directory
+        try:
+            items = list(current_path.iterdir())
+        except (IOError, OSError):
+            return ""
+        
+        # Separate files and folders
+        files = [item for item in items if item.is_file()]
+        folders = [item for item in items if item.is_dir()]
+        
+        # Add files with their hashes (just the hash for files)
+        for file_path in sorted(files):
+            file_hash = file_hash_map.get(file_path, "")
+            if file_hash:
+                structure_parts.append(file_hash)
+        
+        # Add folders with their hashes and recursive structure
+        for folder_path in sorted(folders):
+            folder_hashes = folder_hash_map.get(folder_path, ("", ""))
+            if folder_hashes[0] and folder_hashes[1]:  # hash1 and hash2
+                # Use hash1 (contents hash) for the folder representation
+                sub_structure = build_structure_recursive(folder_path)
+                if sub_structure:
+                    # Folder contains items, so use []
+                    # Remove the outer [] from sub_structure if it exists
+                    clean_sub_structure = sub_structure
+                    if clean_sub_structure.startswith('[') and clean_sub_structure.endswith(']'):
+                        clean_sub_structure = clean_sub_structure[1:-1]
+                    structure_parts.append(f"{folder_hashes[0]}[{clean_sub_structure}]")
+                else:
+                    # Empty folder, show hash with empty []
+                    structure_parts.append(f"{folder_hashes[0]}[]")
+        
+        # Join items at the same level with /
+        return "/".join(structure_parts)
+    
+    # Build the complete structure
+    complete_structure = build_structure_recursive(root_path)
+    
+    # Get root folder hash
+    root_hashes = folder_hash_map.get(root_path, ("", ""))
+    if root_hashes[0] and root_hashes[1]:
+        return f"[{root_hashes[0]}[{complete_structure}]]"
+    else:
+        return f"[{complete_structure}]"
+
+
 def save_cache():
     """
     Save hash cache to disk for future runs.
@@ -334,6 +395,14 @@ def main():
                     print(normalized_output)
             
             print(f"Processed {len(folder_results)} folders")
+            print()
+            
+            # Build and display hierarchical structure
+            print("Hierarchical Structure:")
+            print("-" * 50)
+            hierarchical_structure = build_hierarchical_structure(directory, file_results, folder_results)
+            print(hierarchical_structure)
+            print()
             
         except Exception as error:
             print(f"Error processing directory {directory}: {error}", file=sys.stderr)
