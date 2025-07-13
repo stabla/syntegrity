@@ -478,66 +478,92 @@ def main():
     # Load existing cache
     load_cache()
     
-    # Define directories to process
-    directories_to_process = [
-        "/home/test-syntegrity"
+    # Define directories and files to process
+    paths_to_process = [
+        "/home/test-syntegrity/",
+        "/etc/passwd"
+        # Add individual files here:
+        # "/path/to/specific/file.txt",
+        # "/path/to/another/file.py",
     ]
     
     start_time = time.time()
     
-    for directory in directories_to_process:
-        print(f"Processing directory: {directory}")
-        print("-" * 50)
+    for path in paths_to_process:
+        path_obj = Path(path)
         
-        try:
-            # Single-pass processing with ultra-optimized algorithms
-            file_results, folder_results = process_directory_ultra_optimized(directory)
+        if path_obj.is_file():
+            print(f"Processing file: {path}")
+            print("-" * 50)
             
-            # Output files
-            print("Processing files:")
-            for file_path, file_hash in file_results:
+            try:
+                # Process single file
+                file_hash = compute_file_hash_ultra_optimized(path_obj)
                 if file_hash:
-                    normalized_output = normalize_output(file_path, file_hash)
-                    print(normalized_output)
-            
-            print(f"Processed {len(file_results)} files")
-            print()
-            
-            # Output folders
-            print("Processing folders:")
-            for folder_path, hash1, hash2 in folder_results:
-                if hash1 and hash2:
-                    normalized_output = normalize_folder_output(folder_path, hash1, hash2)
-                    print(normalized_output)
-            
-            print(f"Processed {len(folder_results)} folders")
-            print()
-            
-            # Build and display hierarchical structure
-            print("Hierarchical Structure:")
+                    print(f"File hash: {path}: {file_hash}")
+                    
+                    # For single files, we don't do hierarchical structure or change detection
+                    # since they're not part of a directory structure
+                    print()
+                    
+            except Exception as error:
+                print(f"Error processing file {path}: {error}", file=sys.stderr)
+                
+        elif path_obj.is_dir():
+            print(f"Processing directory: {path}")
             print("-" * 50)
-            hierarchical_structure = build_hierarchical_structure(directory, file_results, folder_results)
-            print(hierarchical_structure)
-            print()
             
-            # Detect and display changes
-            print("Change Detection:")
-            print("-" * 50)
-            changes = detect_changes(directory, file_results, folder_results)
-            
-            if changes:
-                print("Changes detected:")
-                for change in changes:
-                    print(f"  • {change}")
-            else:
-                print("No changes detected since last run.")
-            print()
-            
-            # Save current hashes for next comparison
-            save_current_hashes(directory, file_results, folder_results)
-            
-        except Exception as error:
-            print(f"Error processing directory {directory}: {error}", file=sys.stderr)
+            try:
+                # Single-pass processing with ultra-optimized algorithms
+                file_results, folder_results = process_directory_ultra_optimized(path)
+                
+                # Output files
+                print("Processing files:")
+                for file_path, file_hash in file_results:
+                    if file_hash:
+                        normalized_output = normalize_output(file_path, file_hash)
+                        print(normalized_output)
+                
+                print(f"Processed {len(file_results)} files")
+                print()
+                
+                # Output folders
+                print("Processing folders:")
+                for folder_path, hash1, hash2 in folder_results:
+                    if hash1 and hash2:
+                        normalized_output = normalize_folder_output(folder_path, hash1, hash2)
+                        print(normalized_output)
+                
+                print(f"Processed {len(folder_results)} folders")
+                print()
+                
+                # Build and display hierarchical structure
+                print("Hierarchical Structure:")
+                print("-" * 50)
+                hierarchical_structure = build_hierarchical_structure(path, file_results, folder_results)
+                print(hierarchical_structure)
+                print()
+                
+                # Detect and display changes
+                print("Change Detection:")
+                print("-" * 50)
+                changes = detect_changes(path, file_results, folder_results)
+                
+                if changes:
+                    print("Changes detected:")
+                    for change in changes:
+                        print(f"  • {change}")
+                else:
+                    print("No changes detected since last run.")
+                print()
+                
+                # Save current hashes for next comparison
+                save_current_hashes(path, file_results, folder_results)
+                
+            except Exception as error:
+                print(f"Error processing directory {path}: {error}", file=sys.stderr)
+        else:
+            print(f"Warning: {path} is neither a file nor a directory", file=sys.stderr)
         
         print()
     
