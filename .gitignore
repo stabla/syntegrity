@@ -1,2 +1,6 @@
 .cursor
 .cursor/rules
+syntegrity
+.syntegrity_cache.json
+*_state.json
+.hash_cache.pkl
