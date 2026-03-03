@@ -80,6 +80,12 @@ Syntegrity saves state between runs and reports:
 - Verify backup integrity
 - Ensure build artifacts haven't changed
 
+## FAQ
+
+### Does caching prevent detecting file changes?
+
+No. A cached hash is only used when the file's mtime and size are both unchanged. If a file is modified, its mtime updates, the cache entry is invalidated, and the hash is recomputed. This is the same trust model used by git, make, and rsync.
+
 ## Troubleshooting
 
 ### Cache issues
