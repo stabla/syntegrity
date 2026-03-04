@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
+
+var (
+	verbose    bool
+	jsonOutput bool
 )
 
 // Node represents a file or directory in the tree.
@@ -50,9 +56,18 @@ type SavedState struct {
 const cacheFile = ".syntegrity_cache.json"
 
 func main() {
-	paths := os.Args[1:]
+	flag.BoolVar(&verbose, "v", false, "verbose output: show file/folder hashes and hierarchical structure")
+	flag.BoolVar(&verbose, "verbose", false, "verbose output: show file/folder hashes and hierarchical structure")
+	flag.BoolVar(&jsonOutput, "json", false, "output change detection as JSON")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: syntegrity [options] <path> [path...]\n\nOptions:\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	paths := flag.Args()
 	if len(paths) == 0 {
-		fmt.Fprintln(os.Stderr, "Usage: syntegrity <path> [path...]")
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -70,14 +85,15 @@ func main() {
 		} else {
 			h := hashFile(p, cache)
 			if h != "" {
-				fmt.Printf("File hash: %s: %s\n", p, h)
+				fmt.Printf("%s: %s\n", p, h)
 			}
 		}
-		fmt.Println()
 	}
 
 	saveCache(cache)
-	fmt.Printf("Total processing time: %.2fs\n", time.Since(start).Seconds())
+	if verbose {
+		fmt.Printf("\nTotal processing time: %.2fs\n", time.Since(start).Seconds())
+	}
 }
 
 // buildTree walks the directory once and builds an in-memory tree.
@@ -267,11 +283,14 @@ func computeFolderHashes(n *Node) {
 	n.StructHash = hex.EncodeToString(h2.Sum(nil))
 }
 
+// ChangeEvent represents a single detected change for JSON output.
+type ChangeEvent struct {
+	Type string `json:"type"`
+	Path string `json:"path"`
+}
+
 // processDir handles a single directory: build tree, hash, print results, detect changes.
 func processDir(dir string, cache *Cache) {
-	fmt.Printf("Processing directory: %s\n", dir)
-	fmt.Println(strings.Repeat("-", 50))
-
 	root, err := buildTree(dir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -281,50 +300,63 @@ func processDir(dir string, cache *Cache) {
 	hashAllFiles(root, cache)
 	computeFolderHashes(root)
 
-	// Print file results
-	fmt.Println("Processing files:")
-	var fileCount int
-	walkTree(root, func(n *Node) {
-		if !n.IsDir && n.Hash != "" {
-			fmt.Printf("%s: %s\n", n.Path, n.Hash)
-			fileCount++
-		}
-	})
-	fmt.Printf("Processed %d files\n\n", fileCount)
+	if verbose {
+		fmt.Printf("Processing directory: %s\n", dir)
+		fmt.Println(strings.Repeat("-", 50))
 
-	// Print folder results
-	fmt.Println("Processing folders:")
-	var folderCount int
-	walkTree(root, func(n *Node) {
-		if n.IsDir {
-			fmt.Printf("%s:[%s];[%s]\n", n.Name, n.Hash, n.StructHash)
-			folderCount++
-		}
-	})
-	fmt.Printf("Processed %d folders\n\n", folderCount)
+		// Print file results
+		fmt.Println("Processing files:")
+		var fileCount int
+		walkTree(root, func(n *Node) {
+			if !n.IsDir && n.Hash != "" {
+				fmt.Printf("%s: %s\n", n.Path, n.Hash)
+				fileCount++
+			}
+		})
+		fmt.Printf("Processed %d files\n\n", fileCount)
 
-	// Hierarchical structure
-	fmt.Println("Hierarchical Structure:")
-	fmt.Println(strings.Repeat("-", 50))
-	fmt.Println(hierString(root))
-	fmt.Println()
+		// Print folder results
+		fmt.Println("Processing folders:")
+		var folderCount int
+		walkTree(root, func(n *Node) {
+			if n.IsDir {
+				fmt.Printf("%s:[%s];[%s]\n", n.Name, n.Hash, n.StructHash)
+				folderCount++
+			}
+		})
+		fmt.Printf("Processed %d folders\n\n", folderCount)
+
+		// Hierarchical structure
+		fmt.Println("Hierarchical Structure:")
+		fmt.Println(strings.Repeat("-", 50))
+		fmt.Println(hierString(root))
+		fmt.Println()
+	}
 
 	// Change detection
 	absDir, _ := filepath.Abs(dir)
 	fileResults, folderResults := collectResults(root, absDir)
 	changes := detectChanges(absDir, fileResults, folderResults)
 
-	fmt.Println("Change Detection:")
-	fmt.Println(strings.Repeat("-", 50))
-	if len(changes) > 0 {
-		fmt.Println("Changes detected:")
+	if jsonOutput {
+		events := make([]ChangeEvent, 0, len(changes))
 		for _, c := range changes {
-			fmt.Printf("  \u2022 %s\n", c)
+			parts := strings.SplitN(c, ": ", 2)
+			if len(parts) == 2 {
+				events = append(events, ChangeEvent{Type: parts[0], Path: parts[1]})
+			}
 		}
+		data, _ := json.MarshalIndent(events, "", "  ")
+		fmt.Println(string(data))
 	} else {
-		fmt.Println("No changes detected since last run.")
+		if len(changes) > 0 {
+			for _, c := range changes {
+				fmt.Println(c)
+			}
+		} else {
+			fmt.Println("No changes detected.")
+		}
 	}
-	fmt.Println()
 
 	saveState(absDir, fileResults, folderResults)
 }
