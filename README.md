@@ -40,7 +40,7 @@ syntegrity [options] <path> [path...]
 
 | Flag | Description |
 | --- | --- |
-| (none) | Silent mode — only shows change detection results |
+| (none) | Silent mode, only shows change detection results |
 | `-v`, `--verbose` | Show file/folder hashes and hierarchical structure |
 | `--json` | Output change detection as JSON |
 
@@ -107,8 +107,8 @@ Syntegrity saves state between runs and reports the following event types:
 | `MODIFIED_FILE` | A file's content hash has changed |
 | `NEW_FOLDER` | A folder that didn't exist in the previous run |
 | `NEW_FILE` | A file that didn't exist in the previous run |
-| `FOLDER_CONTENTS_CHANGED` | A folder's content hash (hash1) changed — files inside were added, removed, or modified |
-| `FOLDER_STRUCTURE_CHANGED` | A folder's structure hash (hash2) changed — immediate children were added, removed, or resized |
+| `FOLDER_CONTENTS_CHANGED` | A folder's content hash (hash1) changed, files inside were added, removed, or modified |
+| `FOLDER_STRUCTURE_CHANGED` | A folder's structure hash (hash2) changed, immediate children were added, removed, or resized |
 
 ## Use cases
 
@@ -126,11 +126,11 @@ No. A cached hash is only used when the file's mtime and size are both unchanged
 
 ### What if the content of a file changes?
 
-Yes, it detects it. Every file is hashed with SHA-256. When a file's content changes, its hash changes, and Syntegrity reports it as `MODIFIED_FILE`. Because folder hashes are built as a Merkle tree from their children, a single file change also propagates up — every parent folder's content hash (hash1) will change too.
+Yes, it detects it. Every file is hashed with SHA-256. When a file's content changes, its hash changes, and Syntegrity reports it as `MODIFIED_FILE`. Because folder hashes are built as a Merkle tree from their children, a single file change also propagates up and every parent folder's content hash (hash1) will change too.
 
 ### Why two hashes per folder?
 
-Hash1 (content) tells you *what* is inside — if any file's content changes anywhere in the tree, hash1 changes. Hash2 (structure) tells you *how* it's organized — if files are added, removed, or renamed, hash2 changes. A file that is modified in place changes hash1 but not hash2. A file that is renamed changes hash2 but not hash1. This separation lets you distinguish between content tampering and structural reorganization.
+Hash1 (content) tells you *what* is inside. If any file's content changes anywhere in the tree, hash1 changes. Hash2 (structure) tells you *how* it's organized. If files are added, removed, or renamed, hash2 changes. A file modified in place changes hash1 but not hash2. A file renamed changes hash2 but not hash1. This separation lets you distinguish between content tampering and structural reorganization.
 
 ## Troubleshooting
 
