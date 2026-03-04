@@ -32,23 +32,55 @@ Supports multiple paths and individual files:
 ./syntegrity /etc/config /var/log /path/to/file.txt
 ```
 
-## Output format
+## Usage
 
 ```
+syntegrity [options] <path> [path...]
+```
+
+| Flag | Description |
+| --- | --- |
+| (none) | Silent mode — only shows change detection results |
+| `-v`, `--verbose` | Show file/folder hashes and hierarchical structure |
+| `--json` | Output change detection as JSON |
+
+### Default output
+
+```
+MODIFIED_FILE: config.txt
+NEW_FILE: data.csv
+FOLDER_CONTENTS_CHANGED: .
+```
+
+### Verbose output (`-v`)
+
+```
+Processing directory: /home/data
+--------------------------------------------------
 Processing files:
-/home/data/file1: 32c66107f0f4f2053128e519681fc8e88806d0d2b17607ce9f2362aff66ad6c7
-/home/data/file2: 85df9a7c92f2e8c562629361ed51d54efb76e0f12ffd2a588f25f93a29d2a43e
+/home/data/file1: 32c66107...
+/home/data/file2: 85df9a7c...
+Processed 2 files
 
 Processing folders:
 data:[content_hash];[structure_hash]
 subfolder:[content_hash];[structure_hash]
+Processed 2 folders
 
 Hierarchical Structure:
+--------------------------------------------------
 [root_hash[file_hash/file_hash/subfolder_hash[child_hash]]]
 
-Change Detection:
-  • MODIFIED_FILE: file1
-  • NEW_FILE: file3
+No changes detected.
+```
+
+### JSON output (`--json`)
+
+```json
+[
+  {"type": "MODIFIED_FILE", "path": "config.txt"},
+  {"type": "NEW_FILE", "path": "data.csv"}
+]
 ```
 
 For folders, the format is: `foldername:[hash1];[hash2]`
