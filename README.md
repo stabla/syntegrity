@@ -19,6 +19,15 @@ This lets you detect both content changes and structural modifications in your f
 - **Change detection** - Tracks file/folder additions, deletions, modifications between runs
 - **Single binary** - No runtime dependencies, just build and run
 
+### Benchmark
+
+Tested on ~/Documents (9.37 GB, 7039 files, Apple Silicon):
+
+| Run | Time |
+| --- | --- |
+| Cold (no cache) | 2.73s |
+| Cached | 0.09s |
+
 ## Quick start
 
 ```bash
@@ -43,6 +52,7 @@ syntegrity [options] <path> [path...]
 | (none) | Silent mode, only shows change detection results |
 | `-v`, `--verbose` | Show file/folder hashes and hierarchical structure |
 | `--json` | Output change detection as JSON |
+| `-t`, `--time` | Show processing time |
 
 ### Default output
 

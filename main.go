@@ -19,6 +19,7 @@ import (
 var (
 	verbose    bool
 	jsonOutput bool
+	trackTime  bool
 )
 
 // Node represents a file or directory in the tree.
@@ -59,6 +60,8 @@ func main() {
 	flag.BoolVar(&verbose, "v", false, "verbose output: show file/folder hashes and hierarchical structure")
 	flag.BoolVar(&verbose, "verbose", false, "verbose output: show file/folder hashes and hierarchical structure")
 	flag.BoolVar(&jsonOutput, "json", false, "output change detection as JSON")
+	flag.BoolVar(&trackTime, "t", false, "show processing time")
+	flag.BoolVar(&trackTime, "time", false, "show processing time")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: syntegrity [options] <path> [path...]\n\nOptions:\n")
 		flag.PrintDefaults()
@@ -91,7 +94,7 @@ func main() {
 	}
 
 	saveCache(cache)
-	if verbose {
+	if verbose || trackTime {
 		fmt.Printf("\nTotal processing time: %.2fs\n", time.Since(start).Seconds())
 	}
 }
