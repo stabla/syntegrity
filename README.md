@@ -21,7 +21,7 @@ This lets you detect both content changes and structural modifications in your f
 
 ### Benchmark
 
-Tested on ~/Documents (9.37 GB, 7039 files, Apple Silicon):
+Tested on ~/Documents (9.37 GB, 7039 files, Apple Silicon M3):
 
 | Run | Time |
 | --- | --- |
